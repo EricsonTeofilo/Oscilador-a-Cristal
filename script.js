@@ -1,6 +1,6 @@
-// ============================================================
-//  Simulador do Oscilador a Cristal – Sem Eixos, Apenas Curva
-// ============================================================
+// ==================================
+//  Simulador do Oscilador a Cristal
+// ===================================
 
 const canvas = document.getElementById('oscCanvas');
 const ctx = canvas.getContext('2d');
@@ -103,7 +103,7 @@ function simulateStep() {
     if (points.length > MAX_POINTS) points.shift();
 }
 
-// -------------------- Desenho (sem eixos) --------------------
+// -------------------- Desenho --------------------
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -111,7 +111,7 @@ function draw() {
     const h = canvas.height;
     const centerY = h / 2;
 
-    // ---- Grade de fundo (apenas visual) ----
+    // ---- Grade de fundo ---
     ctx.strokeStyle = '#e8eef5';
     ctx.lineWidth = 0.6;
 
@@ -130,7 +130,7 @@ function draw() {
         ctx.stroke();
     }
 
-    // ---- Linha central horizontal (referência, bem clara) ----
+    // ---- Linha central horizontal ----
     ctx.strokeStyle = '#c0d0e0';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
@@ -170,7 +170,7 @@ function draw() {
     }
     ctx.stroke();
 
-    // ---- Informações sobrepostas (sem eixos) ----
+    // ---- Informações sobrepostas ----
     const omegaNat = Math.sqrt(1 / (L * C));
 
     ctx.fillStyle = '#2d6ec4';
