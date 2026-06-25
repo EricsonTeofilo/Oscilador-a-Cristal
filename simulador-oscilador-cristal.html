@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Simulador de Oscilador a Cristal — Modelo BVD</title>
+  <style>
+/* style.css — Crystal Oscillator Simulator */
+
+:root {
+  --bg:       #0d1117;
+  --surface:  #111827;
+  --card:     #161f2e;
+  --border:   #1e2d40;
+  --accent1:  #3a8ef6;   /* series resonance blue */
+  --accent2:  #00e5a0;   /* inductive region teal */
+  --accent3:  #ff6b6b;   /* parallel resonance red */
+  --text:     #c9d8e8;
+  --muted:    #5a7a9a;
+  --mono:     "Courier New", "Lucida Console", monospace;
+  --sans:     system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius:   10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── Layout ──────────────────────────────────────────── */
+
+.app-wrapper {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+header h1 span { color: var(--accent1); }
+
+header .subtitle {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.grid-main {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .grid-main { grid-template-columns: 1fr; }
+}
+
+/* ── Cards ───────────────────────────────────────────── */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.card-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+/* ── Preset selector ─────────────────────────────────── */
+
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.preset-row label { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+
+select {
+  flex: 1;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  outline: none;
+}
+select:focus { border-color: var(--accent1); }
+
+/* ── Parameter sliders ───────────────────────────────── */
+
+.param-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.param-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 90px;
+  align-items: center;
+  gap: 10px;
+}
+
+.param-label {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--accent2);
+  text-align: right;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent1);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 6px rgba(58,142,246,0.5);
+}
+input[type="range"]:focus::-webkit-slider-thumb { background: var(--accent2); }
+
+.param-val {
+  font-family: var(--mono);
+  font-size: 0.73rem;
+  color: var(--text);
+  text-align: right;
+}
+
+.param-desc {
+  grid-column: 2 / 4;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: -6px;
+}
+
+.param-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+/* ── Metrics strip ───────────────────────────────────── */
+
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 700px) {
+  .metrics-strip { grid-template-columns: repeat(3, 1fr); }
+}
+
+.metric-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.metric-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.metric-value {
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.metric-box:nth-child(1) .metric-value { color: var(--accent2); }
+.metric-box:nth-child(2) .metric-value { color: var(--accent3); }
+.metric-box:nth-child(3) .metric-value { color: #f4c542; }
+
+/* ── Charts ──────────────────────────────────────────── */
+
+.charts-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chart-card { padding: 16px 18px; }
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.chart-tag {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-family: var(--mono);
+}
+.tag-series   { background: rgba(0,229,160,0.15); color: var(--accent2); border: 1px solid rgba(0,229,160,0.3); }
+.tag-parallel { background: rgba(255,107,107,0.15); color: var(--accent3); border: 1px solid rgba(255,107,107,0.3); }
+.tag-inductive{ background: rgba(58,142,246,0.15); color: var(--accent1); border: 1px solid rgba(58,142,246,0.3); }
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 220px;
+  border-radius: 6px;
+}
+
+.region-label {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── Probe tool ──────────────────────────────────────── */
+
+.probe-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.probe-row input[type="number"] {
+  flex: 1;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  outline: none;
+}
+.probe-row input:focus { border-color: var(--accent1); }
+
+.probe-row .unit {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.btn {
+  background: var(--accent1);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { background: #5ba3ff; }
+
+.probe-result {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text);
+  min-height: 1.4em;
+  padding: 6px 10px;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ── Info panel ──────────────────────────────────────── */
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.info-item {
+  font-size: 0.73rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.info-item strong {
+  display: block;
+  font-family: var(--mono);
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+/* ── Legend dots ─────────────────────────────────────── */
+
+.legend {
+  display: flex;
+  gap: 14px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+  </style>
+</head>
+<body>
+<div class="app-wrapper">
+  <header>
+    <h1>Oscilador a <span>Cristal</span></h1>
+    <span class="subtitle">Modelo Butterworth-Van Dyke (BVD) — Análise Dinâmica</span>
+  </header>
+  <div class="grid-main">
+    <aside>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Preset de Cristal</div>
+        <div class="preset-row">
+          <label for="preset-select">Tipo</label>
+          <select id="preset-select">
+            <option value="10MHz-AT">AT-cut 10 MHz (referência)</option>
+            <option value="4MHz-AT">AT-cut 4 MHz</option>
+            <option value="20MHz-SC">SC-cut 20 MHz</option>
+            <option value="32kHz-TF">Diapasão 32,768 kHz</option>
+            <option value="Custom">Personalizado</option>
+          </select>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Ramo Motriz (Mecânico)</div>
+        <div class="param-group">
+          <div class="param-row">
+            <span class="param-label">Lm</span>
+            <input type="range" id="lm" min="0.1" max="100" step="0.1" value="10"/>
+            <span class="param-val" id="val-lm">10.00 mH</span>
+            <span class="param-desc">Indutância — inércia mecânica</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Cm</span>
+            <input type="range" id="cm" min="1" max="100" step="0.5" value="25.33"/>
+            <span class="param-val" id="val-cm">25.33 fF</span>
+            <span class="param-desc">Capacitância — elasticidade / compliância</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Rm</span>
+            <input type="range" id="rm" min="0.5" max="200" step="0.5" value="5"/>
+            <span class="param-val" id="val-rm">5.0 Ω</span>
+            <span class="param-desc">Resistência — amortecimento / atrito</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Ramo Estático (Elétrico)</div>
+        <div class="param-group">
+          <div class="param-row">
+            <span class="param-label">C0</span>
+            <input type="range" id="c0" min="0.5" max="20" step="0.1" value="3.5"/>
+            <span class="param-val" id="val-c0">3.50 pF</span>
+            <span class="param-desc">Capacitância dos eletrodos (C0 ≫ Cm)</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Oscilador Pierce — Carga Externa</div>
+        <div class="param-group">
+          <div class="param-row">
+            <span class="param-label">CL</span>
+            <input type="range" id="cl" min="1" max="30" step="0.5" value="10"/>
+            <span class="param-val" id="val-cl">10.0 pF</span>
+            <span class="param-desc">Capacitância de carga equivalente C1∥C2</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Sonda de Impedância</div>
+        <div class="probe-row">
+          <input type="number" id="probe-freq" placeholder="Ex: 10.000" step="0.001"/>
+          <span class="unit">MHz</span>
+          <button class="btn" id="btn-probe">Calcular</button>
+        </div>
+        <div class="probe-result" id="probe-result">Digite uma frequência e pressione Calcular.</div>
+      </div>
+    </aside>
+    <main class="charts-col">
+      <div class="metrics-strip">
+        <div class="metric-box"><div class="metric-label">Ressonância Série fs</div><div class="metric-value" id="metric-fs">—</div></div>
+        <div class="metric-box"><div class="metric-label">Anti-Ressonância fp</div><div class="metric-value" id="metric-fp">—</div></div>
+        <div class="metric-box"><div class="metric-label">Fator de Qualidade Q</div><div class="metric-value" id="metric-q">—</div></div>
+        <div class="metric-box"><div class="metric-label">Freq. c/ Carga fL</div><div class="metric-value" id="metric-fl">—</div></div>
+        <div class="metric-box"><div class="metric-label">Janela Δf</div><div class="metric-value" id="metric-delta">—</div></div>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-header">
+          <span class="card-title" style="margin-bottom:0">Impedância |Z| vs Frequência</span>
+          <div style="display:flex;gap:6px">
+            <span class="chart-tag tag-series">fs</span>
+            <span class="chart-tag tag-inductive">Indutivo</span>
+            <span class="chart-tag tag-parallel">fp</span>
+          </div>
+        </div>
+        <canvas id="canvas-impedance"></canvas>
+        <div class="region-label" id="region-label"></div>
+        <div class="legend">
+          <span><span class="dot" style="background:#00e5a0"></span>Ressonância série — |Z| mínimo (≈Rm)</span>
+          <span><span class="dot" style="background:#ff6b6b"></span>Anti-ressonância — |Z| máximo</span>
+          <span><span class="dot" style="background:rgba(100,160,255,0.4)"></span>Região indutiva</span>
+        </div>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-header">
+          <span class="card-title" style="margin-bottom:0">Resposta Transitória — Oscilador Amortecido</span>
+          <span class="chart-tag tag-inductive">x(t) = e<sup>−αt</sup>·cos(ω<sub>d</sub>t)</span>
+        </div>
+        <canvas id="canvas-transient"></canvas>
+        <div class="legend">
+          <span><span class="dot" style="background:rgba(0,229,160,0.5)"></span>Envoltória e<sup>−αt</sup></span>
+          <span><span class="dot" style="background:#3a8ef6"></span>Oscilação amortecida x(t)</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Referência Teórica — Modelo BVD</div>
+        <div class="info-grid">
+          <div class="info-item"><strong>Ressonância Série ωs</strong>ωs = 1/√(Lm·Cm) — reatância motriz se anula; |Z| ≈ Rm (mínimo)</div>
+          <div class="info-item"><strong>Anti-Ressonância ωp</strong>ωp = √((Cm+C0)/(Lm·Cm·C0)) — |Z| → ∞ (circuito aberto virtual)</div>
+          <div class="info-item"><strong>Fator de Qualidade Q</strong>Q = ωs·Lm/Rm — quartzo: 10 000–100 000 (vs 50–200 em LC)</div>
+          <div class="info-item"><strong>Critério de Barkhausen (Pierce)</strong>|Aβ| ≥ 1 e ∠Aβ = 0°; inversor (180°) + filtro-π cristal (180°) = 360°</div>
+          <div class="info-item"><strong>Frequência com Carga CL</strong>fL ≈ fs·(1 + Cm/(2·(C0+CL))) — ajuste fino por capacitor externo</div>
+          <div class="info-item"><strong>Janela Indutiva</strong>Δω/ωs ≈ Cm/(2·C0) — extremamente estreita pois C0 ≫ Cm</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+// ── crystal-model.js ──────────────────────────────────────────────────────
+/**
+ * crystal-model.js
+ * Butterworth-Van Dyke (BVD) equivalent circuit model.
+ * All frequencies in Hz, impedances in Ohms, capacitances in Farads, inductances in Henries.
+ */
+
+class CrystalModel {
+  /**
+   * @param {object} params
+   * @param {number} params.Lm  - Motional inductance (H)   — represents mechanical mass/inertia
+   * @param {number} params.Cm  - Motional capacitance (F)  — represents elasticity/compliance
+   * @param {number} params.Rm  - Motional resistance (Ω)   — represents internal friction/damping
+   * @param {number} params.C0  - Static (electrode) capacitance (F)
+   */
+  constructor({ Lm, Cm, Rm, C0 }) {
+    this.Lm = Lm;
+    this.Cm = Cm;
+    this.Rm = Rm;
+    this.C0 = C0;
+  }
+
+  /** Series resonance ωs = 1/√(Lm·Cm) */
+  get ws() {
+    return 1 / Math.sqrt(this.Lm * this.Cm);
+  }
+
+  /** Series resonance frequency fs (Hz) */
+  get fs() {
+    return this.ws / (2 * Math.PI);
+  }
+
+  /**
+   * Parallel / anti-resonance ωp ≈ ωs · √(1 + Cm/C0)
+   * Exact: ωp = √((Cm + C0)/(Lm·Cm·C0))
+   */
+  get wp() {
+    return Math.sqrt((this.Cm + this.C0) / (this.Lm * this.Cm * this.C0));
+  }
+
+  /** Parallel resonance frequency fp (Hz) */
+  get fp() {
+    return this.wp / (2 * Math.PI);
+  }
+
+  /** Quality factor Q = ωs·Lm / Rm  =  1/(ωs·Cm·Rm) */
+  get Q() {
+    return (this.ws * this.Lm) / this.Rm;
+  }
+
+  /** Fractional frequency separation Δω/ωs ≈ Cm/(2·C0) */
+  get deltaOmegaNorm() {
+    return this.Cm / (2 * this.C0);
+  }
+
+  /**
+   * Oscillation frequency with external load capacitance CL (Pierce oscillator).
+   * First-order Taylor expansion: ωL ≈ ωs · (1 + Cm / (2·(C0 + CL)))
+   * @param {number} CL  - Load capacitance (F)
+   * @returns {number} fL (Hz)
+   */
+  fWithLoad(CL) {
+    const wL = this.ws * (1 + this.Cm / (2 * (this.C0 + CL)));
+    return wL / (2 * Math.PI);
+  }
+
+  /**
+   * Complex impedance Z(ω) of the full BVD circuit.
+   * Z_motional = Rm + j·ω·Lm + 1/(j·ω·Cm)
+   * Z_static   = 1/(j·ω·C0)
+   * Z_total    = Z_motional ∥ Z_static
+   *
+   * Returns { re, im, mag, phase }
+   * @param {number} freq - Frequency in Hz
+   */
+  impedance(freq) {
+    const w = 2 * Math.PI * freq;
+
+    // Motional branch: Z_m = Rm + j(wLm - 1/(wCm))
+    const zmRe = this.Rm;
+    const zmIm = w * this.Lm - 1 / (w * this.Cm);
+
+    // Static branch: Z_0 = -j/(wC0)
+    const z0Im = -1 / (w * this.C0);
+
+    // Parallel combination: Z = (Z_m * Z_0) / (Z_m + Z_0)
+    // Numerator = Z_m · Z_0  (Z_0 is purely imaginary)
+    const numRe = zmRe * 0 - zmIm * z0Im; // Re(Z_m · Z_0)
+    const numIm = zmRe * z0Im + zmIm * 0;  // Im(Z_m · Z_0)
+
+    // Denominator = Z_m + Z_0
+    const denRe = zmRe;
+    const denIm = zmIm + z0Im;
+    const denMag2 = denRe * denRe + denIm * denIm;
+
+    const re = (numRe * denRe + numIm * denIm) / denMag2;
+    const im = (numIm * denRe - numRe * denIm) / denMag2;
+    const mag = Math.sqrt(re * re + im * im);
+    const phase = Math.atan2(im, re) * (180 / Math.PI);
+
+    return { re, im, mag, phase };
+  }
+
+  /**
+   * Generate impedance curve data across a frequency sweep.
+   * @param {number} nPoints - Number of sample points
+   * @returns {Array<{f, magDb, phase}>}
+   */
+  sweepImpedance(nPoints = 600) {
+    const fCenter = (this.fs + this.fp) / 2;
+    const span = Math.max((this.fp - this.fs) * 8, fCenter * 0.001);
+    const fStart = fCenter - span / 2;
+    const fStop  = fCenter + span / 2;
+
+    const data = [];
+    for (let i = 0; i < nPoints; i++) {
+      const f = fStart + (fStop - fStart) * (i / (nPoints - 1));
+      const z = this.impedance(f);
+      const magDb = z.mag > 0 ? 20 * Math.log10(z.mag) : -200;
+      data.push({ f, magDb, phase: z.phase, mag: z.mag });
+    }
+    return data;
+  }
+
+  /**
+   * Simulate damped oscillation of the crystal (mechanical analogy).
+   * x''(t) + (Rm/Lm)·x'(t) + (1/(Lm·Cm))·x(t) = 0
+   * Solution: x(t) = A·e^(-αt)·cos(ωd·t)
+   * @param {number} duration - seconds
+   * @param {number} sampleRate - samples per second
+   */
+  simulateTransient(duration = 10e-6, sampleRate = 1e9) {
+    const alpha = this.Rm / (2 * this.Lm);            // decay constant
+    const wd    = Math.sqrt(Math.max(this.ws * this.ws - alpha * alpha, 0)); // damped freq
+    const dt    = 1 / sampleRate;
+    const n     = Math.floor(duration * sampleRate);
+    const out   = [];
+
+    for (let i = 0; i < n; i++) {
+      const t = i * dt;
+      const x = Math.exp(-alpha * t) * Math.cos(wd * t);
+      out.push({ t, x });
+    }
+    return out;
+  }
+}
+
+// Default 10 MHz AT-cut quartz crystal (typical datasheet values)
+const DEFAULT_PARAMS = {
+  Lm: 10e-3,       // 10 mH
+  Cm: 25.33e-15,   // 25.33 fF  → fs ≈ 10 MHz
+  Rm: 5,           // 5 Ω
+  C0: 3.5e-12,     // 3.5 pF   (C0 >> Cm  ✓)
+};
+
+
+
+// ── charts.js ─────────────────────────────────────────────────────────────
+/**
+ * charts.js
+ * Lightweight canvas chart utilities — no external dependencies.
+ */
+
+/** Map a data value to canvas pixel coordinates */
+function mapRange(val, inMin, inMax, outMin, outMax) {
+  return outMin + ((val - inMin) / (inMax - inMin)) * (outMax - outMin);
+}
+
+/**
+ * Draw the impedance magnitude (|Z| dB) vs frequency curve.
+ * @param {HTMLCanvasElement} canvas
+ * @param {Array<{f, magDb}>} data
+ * @param {number} fs - Series resonance (Hz)
+ * @param {number} fp - Parallel resonance (Hz)
+ * @param {object} opts
+ */
+function drawImpedanceCurve(canvas, data, fs, fp, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth  || canvas.width  / dpr;
+  const H = canvas.clientHeight || canvas.height / dpr;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 24, right: 24, bottom: 52, left: 64 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top  - pad.bottom;
+
+  // Background
+  ctx.fillStyle = opts.bg || '#0d1117';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!data || data.length === 0) return;
+
+  const fVals   = data.map(d => d.f);
+  const dbVals  = data.map(d => d.magDb).filter(isFinite);
+  const fMin    = fVals[0];
+  const fMax    = fVals[fVals.length - 1];
+  const dbMin   = Math.min(...dbVals) - 10;
+  const dbMax   = Math.max(...dbVals) + 10;
+
+  // Grid
+  ctx.strokeStyle = '#1e2d40';
+  ctx.lineWidth = 1;
+  const yGridSteps = 6;
+  for (let i = 0; i <= yGridSteps; i++) {
+    const y = pad.top + ch * (i / yGridSteps);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cw, y);
+    ctx.stroke();
+    const dbLabel = (dbMax - (dbMax - dbMin) * (i / yGridSteps)).toFixed(0);
+    ctx.fillStyle = '#5a7a9a';
+    ctx.font = '11px "Courier New", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(dbLabel + ' dB', pad.left - 6, y + 4);
+  }
+
+  // Axes labels
+  ctx.fillStyle = '#8ab4d4';
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Frequência (Hz)', pad.left + cw / 2, H - 8);
+
+  ctx.save();
+  ctx.translate(14, pad.top + ch / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('|Z| (dB Ω)', 0, 0);
+  ctx.restore();
+
+  // Resonance vertical markers
+  const drawMarker = (freq, label, color) => {
+    const x = pad.left + mapRange(freq, fMin, fMax, 0, cw);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, pad.top + ch);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x, pad.top - 6);
+  };
+
+  drawMarker(fs, 'fs', '#00e5a0');
+  drawMarker(fp, 'fp', '#ff6b6b');
+
+  // Inductive region fill
+  const xFs = pad.left + mapRange(fs, fMin, fMax, 0, cw);
+  const xFp = pad.left + mapRange(fp, fMin, fMax, 0, cw);
+  ctx.fillStyle = 'rgba(100,160,255,0.06)';
+  ctx.fillRect(xFs, pad.top, xFp - xFs, ch);
+
+  // Impedance curve
+  ctx.beginPath();
+  ctx.lineWidth = 2.5;
+
+  // Gradient stroke
+  const grad = ctx.createLinearGradient(pad.left, 0, pad.left + cw, 0);
+  grad.addColorStop(0,   '#3a8ef6');
+  grad.addColorStop(0.5, '#00e5a0');
+  grad.addColorStop(1,   '#ff6b6b');
+  ctx.strokeStyle = grad;
+
+  let first = true;
+  for (const d of data) {
+    if (!isFinite(d.magDb)) { first = true; continue; }
+    const x = pad.left + mapRange(d.f, fMin, fMax, 0, cw);
+    const y = pad.top  + mapRange(d.magDb, dbMax, dbMin, 0, ch);
+    const yc = Math.max(pad.top, Math.min(pad.top + ch, y));
+    if (first) { ctx.moveTo(x, yc); first = false; } else { ctx.lineTo(x, yc); }
+  }
+  ctx.stroke();
+
+  // X-axis frequency ticks
+  const tickCount = 6;
+  ctx.fillStyle = '#5a7a9a';
+  ctx.font = '10px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= tickCount; i++) {
+    const f = fMin + (fMax - fMin) * (i / tickCount);
+    const x = pad.left + cw * (i / tickCount);
+    ctx.fillText(formatHz(f), x, pad.top + ch + 18);
+  }
+}
+
+/**
+ * Draw the transient oscillation waveform.
+ * @param {HTMLCanvasElement} canvas
+ * @param {Array<{t, x}>} data
+ */
+function drawTransientWaveform(canvas, data, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth  || canvas.width  / dpr;
+  const H = canvas.clientHeight || canvas.height / dpr;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 24, right: 24, bottom: 52, left: 64 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top  - pad.bottom;
+
+  ctx.fillStyle = opts.bg || '#0d1117';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!data || data.length === 0) return;
+
+  const tMax = data[data.length - 1].t;
+  const tMin = 0;
+
+  // Grid
+  ctx.strokeStyle = '#1e2d40';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + ch * (i / 4);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    const label = (1 - 2 * (i / 4)).toFixed(1);
+    ctx.fillStyle = '#5a7a9a';
+    ctx.font = '11px "Courier New", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(label, pad.left - 6, y + 4);
+  }
+
+  // Envelope
+  ctx.strokeStyle = 'rgba(0,229,160,0.3)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  let firstEnv = true;
+  for (const d of data) {
+    const alpha = opts.alpha || 0;
+    const env = Math.exp(-alpha * d.t);
+    const x = pad.left + mapRange(d.t, tMin, tMax, 0, cw);
+    const y = pad.top + mapRange(env, 1, -1, 0, ch);
+    if (firstEnv) { ctx.moveTo(x, y); firstEnv = false; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.beginPath();
+  firstEnv = true;
+  for (const d of data) {
+    const alpha = opts.alpha || 0;
+    const env = Math.exp(-alpha * d.t);
+    const x = pad.left + mapRange(d.t, tMin, tMax, 0, cw);
+    const y = pad.top  + mapRange(env,  1, -1, 0, ch);
+    if (firstEnv) { ctx.moveTo(x, y); firstEnv = false; } else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  firstEnv = true;
+  for (const d of data) {
+    const alpha = opts.alpha || 0;
+    const env = -Math.exp(-alpha * d.t);
+    const x = pad.left + mapRange(d.t, tMin, tMax, 0, cw);
+    const y = pad.top  + mapRange(env,  1, -1, 0, ch);
+    if (firstEnv) { ctx.moveTo(x, y); firstEnv = false; } else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Waveform
+  ctx.beginPath();
+  const grad2 = ctx.createLinearGradient(pad.left, 0, pad.left + cw, 0);
+  grad2.addColorStop(0,   '#3a8ef6');
+  grad2.addColorStop(1,   'rgba(58,142,246,0.2)');
+  ctx.strokeStyle = grad2;
+  ctx.lineWidth = 1.8;
+
+  // Downsample for performance
+  const maxPts = 2000;
+  const step = Math.max(1, Math.floor(data.length / maxPts));
+  let firstPt = true;
+  for (let i = 0; i < data.length; i += step) {
+    const d = data[i];
+    const x = pad.left + mapRange(d.t, tMin, tMax, 0, cw);
+    const y = pad.top  + mapRange(d.x, 1, -1, 0, ch);
+    if (firstPt) { ctx.moveTo(x, y); firstPt = false; } else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#8ab4d4';
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Tempo (s)', pad.left + cw / 2, H - 8);
+  ctx.save();
+  ctx.translate(14, pad.top + ch / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Amplitude (norm.)', 0, 0);
+  ctx.restore();
+
+  // Time ticks
+  ctx.fillStyle = '#5a7a9a';
+  ctx.font = '10px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 5; i++) {
+    const t = tMin + (tMax - tMin) * (i / 5);
+    const x = pad.left + cw * (i / 5);
+    ctx.fillText(formatTime(t), x, pad.top + ch + 18);
+  }
+}
+
+/** Format frequency with SI prefix */
+function formatHz(f) {
+  if (f >= 1e9) return (f / 1e9).toFixed(2) + ' G';
+  if (f >= 1e6) return (f / 1e6).toFixed(2) + ' M';
+  if (f >= 1e3) return (f / 1e3).toFixed(1) + ' k';
+  return f.toFixed(0);
+}
+
+/** Format time with SI prefix */
+function formatTime(t) {
+  if (t === 0) return '0';
+  if (t < 1e-9) return (t * 1e12).toFixed(1) + ' p';
+  if (t < 1e-6) return (t * 1e9).toFixed(1) + ' n';
+  if (t < 1e-3) return (t * 1e6).toFixed(1) + ' µ';
+  return (t * 1e3).toFixed(1) + ' m';
+}
+
+
+
+// ── ui.js ─────────────────────────────────────────────────────────────────
+/**
+ * ui.js
+ * Wires HTML controls → CrystalModel → chart renders + metrics display.
+ */
+
+
+
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+let model = new CrystalModel(DEFAULT_PARAMS);
+let transientData = [];
+let sweepData     = [];
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+
+const els = {};
+const ids = [
+  'lm', 'cm', 'rm', 'c0', 'cl',
+  'val-lm', 'val-cm', 'val-rm', 'val-c0', 'val-cl',
+  'metric-fs', 'metric-fp', 'metric-q', 'metric-fl', 'metric-delta',
+  'canvas-impedance', 'canvas-transient',
+  'region-label', 'probe-freq', 'probe-result',
+  'preset-select',
+];
+
+function initDom() {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) els[id] = el;
+  });
+}
+
+// ─── Presets ──────────────────────────────────────────────────────────────────
+
+const PRESETS = {
+  '10MHz-AT': { Lm: 10e-3,   Cm: 25.33e-15, Rm: 5,   C0: 3.5e-12 },
+  '4MHz-AT':  { Lm: 62.5e-3, Cm: 25.5e-15,  Rm: 15,  C0: 5.0e-12 },
+  '32kHz-TF': { Lm: 3.5,     Cm: 7.0e-15,   Rm: 40e3, C0: 1.3e-12 },
+  '20MHz-SC': { Lm: 3.2e-3,  Cm: 20e-15,    Rm: 8,   C0: 4.0e-12 },
+  'Custom':   null,
+};
+
+// ─── Slider → model ───────────────────────────────────────────────────────────
+
+const SLIDER_CONFIG = {
+  lm: { param: 'Lm', scale: v => v * 1e-3,          fmt: v => (v * 1e3).toFixed(2) + ' mH' },
+  cm: { param: 'Cm', scale: v => v * 1e-15,          fmt: v => (v * 1e15).toFixed(2) + ' fF' },
+  rm: { param: 'Rm', scale: v => v,                  fmt: v => v.toFixed(1) + ' Ω'  },
+  c0: { param: 'C0', scale: v => v * 1e-12,          fmt: v => (v * 1e12).toFixed(2) + ' pF' },
+  cl: { param: '_CL', scale: v => v * 1e-12,         fmt: v => (v * 1e12).toFixed(1) + ' pF' },
+};
+
+function readSliders() {
+  const raw = {};
+  for (const [key, cfg] of Object.entries(SLIDER_CONFIG)) {
+    const el = els[key];
+    if (!el) continue;
+    const v = parseFloat(el.value);
+    raw[key] = v;
+    const valEl = els[`val-${key}`];
+    if (valEl) valEl.textContent = cfg.fmt(cfg.scale(v));
+  }
+  return raw;
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  // Lm in mH, Cm in fF, Rm in Ω, C0 in pF
+  if (els['lm']) els['lm'].value = p.Lm * 1e3;
+  if (els['cm']) els['cm'].value = p.Cm * 1e15;
+  if (els['rm']) els['rm'].value = p.Rm;
+  if (els['c0']) els['c0'].value = p.C0 * 1e12;
+}
+
+// ─── Main update loop ─────────────────────────────────────────────────────────
+
+function update() {
+  const raw = readSliders();
+  const CL  = SLIDER_CONFIG.cl.scale(raw.cl || 10);
+
+  model = new CrystalModel({
+    Lm: SLIDER_CONFIG.lm.scale(raw.lm),
+    Cm: SLIDER_CONFIG.cm.scale(raw.cm),
+    Rm: SLIDER_CONFIG.rm.scale(raw.rm),
+    C0: SLIDER_CONFIG.c0.scale(raw.c0),
+  });
+
+  // Metrics
+  if (els['metric-fs'])    els['metric-fs'].textContent    = formatHz(model.fs) + 'Hz';
+  if (els['metric-fp'])    els['metric-fp'].textContent    = formatHz(model.fp) + 'Hz';
+  if (els['metric-q'])     els['metric-q'].textContent     = model.Q.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+  if (els['metric-fl'])    els['metric-fl'].textContent    = formatHz(model.fWithLoad(CL)) + 'Hz';
+  if (els['metric-delta']) els['metric-delta'].textContent = (model.deltaOmegaNorm * 1e6).toFixed(1) + ' ppm';
+
+  // Region description
+  if (els['region-label']) {
+    const ratio = model.Cm / model.C0;
+    els['region-label'].textContent =
+      `Janela indutiva: Δf ≈ ${((model.fp - model.fs) / model.fs * 1e6).toFixed(0)} ppm — ` +
+      `Cm/C0 = ${(ratio * 1e6).toFixed(1)} ppm`;
+  }
+
+  // Charts
+  sweepData = model.sweepImpedance(600);
+  drawImpedanceCurve(els['canvas-impedance'], sweepData, model.fs, model.fp);
+
+  const duration   = Math.min(50 / model.fs, 200e-6);
+  const sampleRate = Math.min(model.fs * 50, 500e6);
+  transientData = model.simulateTransient(duration, sampleRate);
+  const alpha = model.Rm / (2 * model.Lm);
+  drawTransientWaveform(els['canvas-transient'], transientData, { alpha });
+}
+
+// ─── Probe tool ───────────────────────────────────────────────────────────────
+
+function probeFrequency() {
+  const fInput = els['probe-freq'];
+  const result = els['probe-result'];
+  if (!fInput || !result) return;
+
+  const fHz = parseFloat(fInput.value) * 1e6;
+  if (!isFinite(fHz) || fHz <= 0) { result.textContent = 'Frequência inválida'; return; }
+
+  const z = model.impedance(fHz);
+  const region =
+    fHz < model.fs ? 'Capacitivo (abaixo de fs)' :
+    fHz > model.fp ? 'Capacitivo (acima de fp)' :
+    'Indutivo (entre fs e fp)';
+
+  result.innerHTML =
+    `|Z| = ${z.mag >= 1e6 ? (z.mag/1e6).toFixed(2)+' MΩ' : z.mag >= 1e3 ? (z.mag/1e3).toFixed(2)+' kΩ' : z.mag.toFixed(1)+' Ω'} &nbsp;|&nbsp; ` +
+    `φ = ${z.phase.toFixed(1)}° &nbsp;|&nbsp; ${region}`;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+function init() {
+  initDom();
+
+  // Bind sliders
+  for (const key of Object.keys(SLIDER_CONFIG)) {
+    const el = els[key];
+    if (el) el.addEventListener('input', () => { markCustom(); update(); });
+  }
+
+  // Preset selector
+  const presetEl = els['preset-select'];
+  if (presetEl) {
+    presetEl.addEventListener('change', e => {
+      if (e.target.value !== 'Custom') {
+        applyPreset(e.target.value);
+        update();
+      }
+    });
+  }
+
+  // Probe button
+  const btn = document.getElementById('btn-probe');
+  if (btn) btn.addEventListener('click', probeFrequency);
+  const probeInput = els['probe-freq'];
+  if (probeInput) probeInput.addEventListener('keydown', e => { if (e.key === 'Enter') probeFrequency(); });
+
+  // Resize
+  window.addEventListener('resize', update);
+
+  update();
+}
+
+function markCustom() {
+  const el = els['preset-select'];
+  if (el) el.value = 'Custom';
+}
+
+
+
+// ── main ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => { init(); });
+</script>
+</body>
+</html>
